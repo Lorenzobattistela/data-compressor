@@ -6,16 +6,10 @@
 #include <queue>
 #include <iostream>
 #include <iomanip>
+#include "../node.h"
 
 using namespace std;
 
-struct Node {
-    char character;
-    int frequency;
-    Node *left, *right;
-
-    Node(char ch, int freq) : character(ch), frequency(freq), left(nullptr), right(nullptr) {}
-};
 
 struct Compare {
     bool operator()(Node *a, Node *b) {
@@ -36,6 +30,10 @@ class Compressor {
         string decompress();
 
         void reportCompression(long originalFileSize, streampos compressedFileSize);
+
+        void writeFrequencyTable();
+
+        void printHuffmanCodes();
     
     private:
         void buildFrequencyTable();

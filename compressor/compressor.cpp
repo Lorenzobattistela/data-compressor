@@ -4,6 +4,7 @@
 #include <queue>
 #include <map>
 #include <iomanip>
+#include <fstream>
 
 using namespace std;
 
@@ -19,28 +20,16 @@ string Compressor::compress() {
     return this->encode();
 }
 
-string Compressor::decompress() {
-    return "Decompressing...";
-}
-
 void Compressor::buildFrequencyTable() {
     int charCount = 0;
-    for(int i = 0; i < this->text.length(); i++) {
+    for (int i = 0; i < this->text.length(); i++) {
         charCount++;
-        if(this->frequencyTable.find(this->text[i]) == this->frequencyTable.end()) {
+        if (this->frequencyTable.find(this->text[i]) == this->frequencyTable.end()) {
             this->frequencyTable.insert(pair<char, int>(this->text[i], 1));
         } else {
             this->frequencyTable[this->text[i]]++;
         }
     }
-
-    std::map<char, int> updatedFrequencyTable = this->frequencyTable;
-
-    for (auto& x : updatedFrequencyTable) {
-        x.second = x.second / charCount;
-    }
-
-    this->frequencyTable = updatedFrequencyTable;
 }
 
 Node* Compressor::buildHuffmanTree() {
@@ -85,6 +74,12 @@ void Compressor::assignHuffmanCodes(Node* node, string code) {
     assignHuffmanCodes(node->right, code + '1');
 }
 
+void Compressor::printHuffmanCodes() {
+    for (const auto& entry : huffmanCodes) {
+        cout << entry.first << ": " << entry.second << endl;
+    }
+}
+
 string Compressor::encode() {
     string encodedText = "";
     for(int i = 0; i < this->text.length(); i++) {
@@ -102,4 +97,25 @@ void Compressor::reportCompression(long originalFileSize, streampos compressedFi
     float val = ((float)compressedFileSize * 100) / (float)originalFileSize;
 
     cout << "File shortened " << fixed << setprecision(2) << val << "%" << endl;
+}
+
+void Compressor::writeFrequencyTable() {
+    ofstream outputFile("freq.bin", ios::binary);
+    if (!outputFile) {
+        cout << "Error: Unable to create the frequency table file." << endl;
+        return;
+    }
+
+    int tableSize = frequencyTable.size();
+    outputFile.write(reinterpret_cast<const char*>(&tableSize), sizeof(int));
+
+    for (const auto& entry : frequencyTable) {
+        char character = entry.first;
+        int frequency = entry.second;
+        cout << character << " " << frequency << endl;
+        outputFile.write(reinterpret_cast<const char*>(&character), sizeof(char));
+        outputFile.write(reinterpret_cast<const char*>(&frequency), sizeof(int));
+    }
+
+    outputFile.close();
 }
