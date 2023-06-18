@@ -2,6 +2,7 @@
 #define IO_H
 
 #include <string>
+#include <fstream>
 
 using namespace std;
 
@@ -15,10 +16,12 @@ class IO {
 
         int readFile();
 
-        void reportFileSize();
+        void reportFileSize(string filename);
+
+        streampos getBinaryFileSize(const string& filename);
 
     private:
-        long calculateFileSize();
+        long calculateFileSize(string filename);
 
 };
 
