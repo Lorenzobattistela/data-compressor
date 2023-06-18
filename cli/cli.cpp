@@ -6,6 +6,7 @@
 #include "cli.h"
 #include "../io.h"
 #include "../compressor/compressor.h"
+#include "../decompressor/decompressor.h"
 
 using namespace std;
 
@@ -14,52 +15,61 @@ int main(int argc, char* argv[]) {
     if(cli.checkArgs() == 1) {
         return 1;
     }
+    
+    bool compress = cli.args[2] == "-c";
 
-    IO io(cli.args[1]);
-    io.reportFileSize(io.filename);
-    io.readFile();
+    if(compress) {
+        IO io(cli.args[1]);
+        io.reportFileSize(io.filename);
+        io.readFile();
 
-    cout << io.text << endl;
+        cout << io.text << endl;
 
-    Compressor compressor(io.text);
-    string compressedText = compressor.compress();
-    cout << compressedText << endl;
+        Compressor compressor(io.text);
+        string compressedText = compressor.compress();
+        compressor.printHuffmanCodes();
+        cout << compressedText << endl;
 
-    ofstream outputFile("compressed.bin", ios::binary);
-    if(outputFile) {
-        vector<bool> compressedBits;
-        for(char bit : compressedText) {
-            compressedBits.push_back(bit == '1');
-        }
-
-        size_t numBytes = compressedBits.size() / 8;
-        if (compressedBits.size() % 8 != 0) {
-            numBytes += 1;
-        }
-
-        for (size_t i = 0; i < numBytes; i++) {
-            unsigned char byte = 0;
-            for (int j = 0; j < 8; j++) {
-                if (i * 8 + j < compressedBits.size()) {
-                    byte |= (compressedBits[i * 8 + j] ? (1 << j) : 0);
+        ofstream outputFile("compressed.bin", ios::binary);
+        if(outputFile) {
+            vector<unsigned char> compressedBytes;
+            for (size_t i = 0; i < compressedText.length(); i += 8) {
+                unsigned char byte = 0;
+                for (size_t j = 0; j < 8; j++) {
+                    if (i + j < compressedText.length()) {
+                        byte |= (compressedText[i + j] - '0') << (7 - j);
+                    }
                 }
+                compressedBytes.push_back(byte);
             }
-            outputFile.write(reinterpret_cast<const char*>(&byte), sizeof(byte));
+            outputFile.write(reinterpret_cast<const char*>(compressedBytes.data()), compressedBytes.size());
+            outputFile.close();
+
+            streampos binFileSize = io.getBinaryFileSize("compressed.bin");
+
+            if (binFileSize != -1) {
+                compressor.reportCompression(io.fileSize, binFileSize);
+    
+                compressor.writeFrequencyTable();
+
+            } else {
+                cout << "Failed to determine the size of the compressed file." << endl;
+            }
         }
-        outputFile.close();
 
-        streampos binFileSize = io.getBinaryFileSize("compressed.bin");
-
-        if (binFileSize != -1) {
-            compressor.reportCompression(io.fileSize, binFileSize);
-        } else {
-            cout << "Failed to determine the size of the compressed file." << endl;
+        else {
+            cout << "Error: Failed to open file" << endl;
+            return 1;
         }
     }
 
     else {
-        cout << "Error: Failed to open file" << endl;
-        return 1;
+        if(cli.args.size() < 3) {
+            cout << "Missing file names" << endl;
+            return 1;
+        }
+        Decompressor decompressor(cli.args[1], cli.args[2]);
+        decompressor.decompress();
     }
 }
 
@@ -72,13 +82,9 @@ CLI::CLI(char *args[]) {
 }
 
 int CLI::checkArgs() {
-    if(this->args.size() < 2) {
-        cout << "Usage: " << this->args[0] << " <filename>" << endl;
-        return 1;
-    }
-
-    if(this->args[1].substr(this->args[1].length() - 4, this->args[1].length()) != ".txt") {
-        cout << "Error: File must be a text file (.txt)" << endl;
+    if(this->args.size() < 3) {
+        cout << "Usage: " << this->args[0] << " <filename> -c (to compress)" << endl;
+        cout << "Usage: " << this->args[0] << " <binary compreessed filename> <output filename> to decompress" << endl;
         return 1;
     }
 
